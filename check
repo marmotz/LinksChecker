@@ -1,0 +1,142 @@
+#!/usr/bin/env php
+<?php
+    if(!isset($argv[1])) {
+        die('Please provide an url to check...');
+    }
+
+
+    new Checker($argv[1]);
+
+
+    class Checker {
+        private $baseUrl;
+        private $urlErrors = array();
+        private $checked   = array();
+        private $httpCode  = array();
+
+
+        public function __construct($url) {
+            $this->baseUrl = dirname($url);
+
+            $this->check($url);
+
+            $this->displayErrors();
+        }
+
+        private function check($url) {
+            if(!isset($this->checked[$url])) {
+                $baseUrl = dirname($url);
+                $fileUrl = $this->getFileUrl($url);
+
+                if($fileUrl !== $url && isset($this->checked[$fileUrl])) {
+                    $content = $this->checked[$fileUrl];
+                    $this->checked[$url] = true;
+                }
+                else {
+                    $content = $this->getContent($url);
+                    $this->checked[$url] = $content;
+                }
+
+                if($content === false) {
+                    $this->addError($url, 'no content');
+                }
+                else {
+                    if(strpos($url, $this->baseUrl) !== false) {
+                        preg_match_all('/<a.*href="([^""]+)"/U', $content, $matches);
+
+                        foreach($matches[1] as $link) {
+                            if($link[0] === '#') {
+                                $this->write('I');
+                                if(strpos($content, 'id="' . substr($link, 1) . '"') === false) {
+                                    $this->addError($fileUrl . $link, 'id not found');
+                                }
+                            }
+                            else if(substr($link, 0, 7) === 'http://'
+                                 || substr($link, 0, 8) === 'https://'
+                                 || substr($link, 0, 6) === 'git://'
+                            ) {
+                                if(!$this->checkStatus($link)) {
+                                    $this->addError($link, 'broken link');
+                                }
+                            }
+                            else {
+                                $this->check($this->baseUrl . '/' . $link);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+        private function getContent($url) {
+            if($this->checkStatus($url)) {
+                $this->write('C');
+                return file_get_contents($url);
+            }
+            else {
+                return false;
+            }
+        }
+
+
+        private function checkStatus($url) {
+            $url = $this->getFileUrl($url);
+
+            if(!isset($this->httpCode[$url])) {
+                $this->write('S');
+
+                $curl = curl_init();
+
+                curl_setopt($curl, CURLOPT_URL,             $url);
+                curl_setopt($curl, CURLOPT_HEADER,          false);
+                curl_setopt($curl, CURLOPT_NOBODY,          true);
+                curl_setopt($curl, CURLOPT_RETURNTRANSFER,  false);
+
+                $content = curl_exec($curl);
+
+                $this->httpCode[$url] = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+
+                curl_close($curl);
+            }
+
+            return $this->httpCode[$url] < 400;
+        }
+
+
+        private function getFileUrl($url) {
+            return ($pos = strrpos($url, '#')) === false ? $url : substr($url, 0, $pos);
+        }
+
+
+        private function addError($url, $message) {
+            $this->urlErrors[$url] = $message;
+            $this->write('E');
+        }
+
+
+        private function displayErrors() {
+            $this->writeln();
+
+            if(count($this->urlErrors) === 0) {
+                $this->writeln('No error');
+            }
+            else {
+                $this->writeln(count($this->urlErrors) . ' error(s):');
+
+                foreach($this->urlErrors as $url => $message) {
+                    $this->writeln("$url > $message");
+                }
+            }
+        }
+
+
+        private function write($txt) {
+            echo $txt;
+        }
+
+
+        private function writeln($txt = '') {
+            $this->write("$txt\n");
+        }
+    }
