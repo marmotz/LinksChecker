@@ -47,8 +47,12 @@
                         foreach($matches[1] as $link) {
                             if($link[0] === '#') {
                                 $this->write('I');
-                                if(strpos($content, 'id="' . substr($link, 1) . '"') === false) {
+                                preg_match_all('#' . preg_quote('id="' . substr($link, 1) . '"') . '#', $content, $matches);
+                                if(count($matches[0]) === 0) {
                                     $this->addError($fileUrl . $link, 'id not found');
+                                }
+                                else if(count($matches[0]) > 1) {
+                                    $this->addError($fileUrl . $link, 'duplicated id');
                                 }
                             }
                             else if(substr($link, 0, 7) === 'http://'
