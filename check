@@ -13,6 +13,7 @@
         private $urlErrors = array();
         private $checked   = array();
         private $httpCode  = array();
+        private $id        = array();
 
 
         public function __construct($url) {
@@ -46,13 +47,21 @@
 
                         foreach($matches[1] as $link) {
                             if($link[0] === '#') {
-                                $this->write('I');
-                                preg_match_all('#' . preg_quote('id="' . substr($link, 1) . '"') . '#', $content, $matches);
-                                if(count($matches[0]) === 0) {
-                                    $this->addError($fileUrl . $link, 'id not found');
-                                }
-                                else if(count($matches[0]) > 1) {
-                                    $this->addError($fileUrl . $link, 'duplicated id');
+                                $id = substr($link, 1);
+
+                                if(!isset($this->id[$fileUrl][$id])) {
+                                    $this->write('I');
+
+                                    preg_match_all('#' . preg_quote('id="' . substr($link, 1) . '"') . '#', $content, $matches);
+
+                                    if(count($matches[0]) === 0) {
+                                        $this->addError($fileUrl . $link, 'id not found');
+                                    }
+                                    else if(count($matches[0]) > 1) {
+                                        $this->addError($fileUrl . $link, 'duplicated id');
+                                    }
+
+                                    $this->id[$fileUrl][$id] = true;
                                 }
                             }
                             else if(substr($link, 0, 7) === 'http://'
