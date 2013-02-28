@@ -22,6 +22,8 @@
             $this->check($url);
 
             $this->displayErrors();
+
+            exit(count($this->urlErrors));
         }
 
         private function check($url) {
